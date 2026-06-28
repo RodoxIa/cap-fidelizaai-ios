@@ -1,0 +1,23 @@
+{
+  "appId": "br.com.futurizeia.fidelizaai",
+  "appName": "FidelizaAI",
+  "webDir": "www",
+  "server": {
+    "url": "https://fidelizaai.futurizeia.com",
+    "cleartext": false,
+    "androidScheme": "https",
+    "iosScheme": "https"
+  },
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#ffffff"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "backgroundColor": "#2563eb",
+      "showSpinner": false,
+      "iosSplashResourceName": "Splash"
+    }
+  }
+}
