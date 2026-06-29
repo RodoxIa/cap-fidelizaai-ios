@@ -1,27 +1,30 @@
 # ============================================================================
 # codemagic.yaml — FidelizaAI (wrapper Capacitor iOS)
-# Build + assinatura + envio pro TestFlight via Codemagic (Mac na nuvem).
+# Build + assinatura + envio pro TestFlight/App Store via Codemagic (Mac na nuvem).
 # Mesmo padrao do MeGuia (cap-meguia-ios). Free tier: mac_mini_m2, 500 min/mes.
 # ----------------------------------------------------------------------------
 #
-# >>> O QUE O CHEFE PRECISA CONFIGURAR ANTES DE RODAR (conta Apple + Codemagic) <<<
+# >>> PRE-REQUISITO QUE BLOQUEIA O UPLOAD <<<
+#   O app PRECISA existir no App Store Connect (ter um Apple ID numerico) ANTES
+#   de o build conseguir SUBIR (TestFlight/loja). Criar o app no ASC:
+#       Plataforma iOS | Nome: FidelizaAI | Bundle ID: br.com.futurizeia.fidelizaai
+#       SKU: fidelizaai-ios-001 | Idioma primario: PT-BR
+#   (O Bundle ID ja esta registrado em Certificates, IDs & Profiles > Identifiers.)
+#   Depois de criado, anotar o APPLE ID numerico e preencher APP_STORE_APPLE_ID abaixo.
 #
-#  1) Criar o app no App Store Connect:
-#       - Plataforma iOS | Nome: FidelizaAI | Bundle ID: br.com.futurizeia.fidelizaai
-#       - SKU: fidelizaai-ios-001 | Idioma primario: PT-BR
-#       - Anotar o APPLE ID numerico do app e preencher em APP_STORE_APPLE_ID abaixo.
+# >>> ASSINATURA: AUTOMATIC via integracao App Store Connect <<<
+#   Reusa a MESMA integracao do MeGuia ("meguia_asc": API Key .p8, Key ID Z4XV6T6BN6,
+#   Issuer aed0a88a-...). Mesmo Team (9R57QQ98N6). Com `app-store-connect fetch-signing-files`
+#   + `--create`, a Codemagic gera/baixa o CERT de distribuicao e o PROVISIONING PROFILE
+#   App Store especificos de br.com.futurizeia.fidelizaai automaticamente, usando a API Key.
+#   NAO precisa gerar/subir .p12 nem .mobileprovision por app. ZERO segredo no repo.
 #
-#  2) Integracao App Store Connect na Codemagic:
-#       - Reusar a MESMA API Key .p8 do MeGuia (Key ID Z4XV6T6BN6, Issuer aed0a88a-...).
-#         Mesmo Team (Futurize FuturizeIA, 9R57QQ98N6). Manter o nome "meguia_asc"
-#         abaixo se reusar a integracao, ou criar "fidelizaai_asc".
+#   (Se a integracao no Codemagic tiver outro nome, trocar `meguia_asc` abaixo.)
 #
-#  3) ASSINATURA (grupo de secure vars `fidelizaai_signing`):
-#       - cert+perfil App Store fixos para br.com.futurizeia.fidelizaai via secure vars:
-#           CM_CERTIFICATE, CM_CERTIFICATE_PASSWORD, CM_PROVISIONING_PROFILE
-#       - ou automatic code signing gerenciado pela Codemagic via API key.
-#
-#  4) NADA de segredo entra neste repositorio.
+# >>> EVITAR FALHA DE UPLOAD ANTES DO APP EXISTIR <<<
+#   A publicacao so dispara em build da branch `main`. Enquanto o app nao existir
+#   no ASC, rode o build em branch de teste (ex: `test-build`) -> COMPILA o .ipa
+#   mas NAO tenta subir.
 #
 #  ATENCAO: o FidelizaAI usa CAMERA (leitura de QR no app). O Info.plist ja inclui
 #  NSCameraUsageDescription. Sem essa chave a Apple rejeita / a camera nao abre.
@@ -37,8 +40,6 @@ workflows:
       app_store_connect: meguia_asc
 
     environment:
-      groups:
-        - fidelizaai_signing
       vars:
         BUNDLE_ID: "br.com.futurizeia.fidelizaai"
         APP_STORE_APPLE_ID: 0000000000   # <- PREENCHER com o Apple ID numerico do app (App Store Connect)
@@ -48,6 +49,13 @@ workflows:
       node: 22
       xcode: latest
       cocoapods: default
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
 
     scripts:
       - name: Instalar dependencias do wrapper (npm)
@@ -62,17 +70,14 @@ workflows:
         script: |
           npx cap sync ios
 
-      - name: Setup assinatura (certificado + perfil fixos via secure vars)
+      - name: Assinatura automatica (cert + profile App Store via ASC API Key)
         script: |
           set -e
           keychain initialize
-          echo "$CM_CERTIFICATE" | base64 --decode > /tmp/fidelizaai_dist.p12
-          keychain add-certificates \
-            --certificate /tmp/fidelizaai_dist.p12 \
-            --certificate-password "$CM_CERTIFICATE_PASSWORD"
-          PROFILES_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
-          mkdir -p "$PROFILES_DIR"
-          echo "$CM_PROVISIONING_PROFILE" | base64 --decode > "$PROFILES_DIR/fidelizaai_appstore.mobileprovision"
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
           xcode-project use-profiles
 
       - name: Build IPA
