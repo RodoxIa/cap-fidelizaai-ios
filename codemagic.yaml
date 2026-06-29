@@ -74,8 +74,14 @@ workflows:
         script: |
           set -e
           keychain initialize
+          # Gera private key local (ver explicacao no codemagic.yaml do CarStatus):
+          # sem ela, fetch-signing-files de cert existente da "Cannot save Signing
+          # Certificates without certificate private key".
+          PK="$CM_BUILD_DIR/cert_key.pem"
+          openssl genrsa -out "$PK" 2048
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
+            --certificate-key @file:"$PK" \
             --create
           keychain add-certificates
           xcode-project use-profiles
