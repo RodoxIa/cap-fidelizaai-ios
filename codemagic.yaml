@@ -42,7 +42,7 @@ workflows:
     environment:
       vars:
         BUNDLE_ID: "br.com.futurizeia.fidelizaai"
-        APP_STORE_APPLE_ID: 0000000000   # <- PREENCHER com o Apple ID numerico do app (App Store Connect)
+        APP_STORE_APPLE_ID: 6785683107   # FidelizaAi (App Store Connect)
         APPLE_TEAM_ID: "9R57QQ98N6"
         XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
