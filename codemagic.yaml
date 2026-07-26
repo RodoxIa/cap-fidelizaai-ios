@@ -86,6 +86,18 @@ workflows:
           keychain add-certificates
           xcode-project use-profiles
 
+      - name: Incrementa build number (evita "bundle version must be higher")
+        script: |
+          set -e
+          # A versao 1.0(1) ja foi enviada ao App Store Connect. Todo upload novo
+          # precisa de um build number MAIOR, senao a Apple recusa o binario.
+          LATEST=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo "")
+          if [ -z "$LATEST" ]; then LATEST=0; fi
+          NEXT=$((LATEST + 1))
+          cd "$CM_BUILD_DIR/ios/App"
+          agvtool new-version -all "$NEXT"
+          echo "Build number definido para $NEXT (ultimo no ASC: $LATEST)"
+
       - name: Build IPA
         script: |
           xcode-project build-ipa \
